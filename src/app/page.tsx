@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { getNextSlots, type AvailabilityRule, type TimeOff, type ExistingLesson, type BookingRules } from "@/lib/slots";
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -13,7 +14,7 @@ export default async function HomePage() {
     .from("tutors")
     .select(`
       *,
-      profiles(full_name, avatar_url),
+      profiles(full_name, avatar_url, time_zone),
       tutor_subjects(
         *,
         subjects(name, category)
@@ -37,7 +38,7 @@ export default async function HomePage() {
     );
   }
 
-  const profile = tutor.profiles as { full_name: string; avatar_url: string | null };
+  const profile = tutor.profiles as { full_name: string; avatar_url: string | null; time_zone: string };
   const subjects = (tutor.tutor_subjects as Array<{
     id: string;
     levels: string[];
@@ -47,6 +48,40 @@ export default async function HomePage() {
     active: boolean;
     subjects: { name: string; category: string };
   }>)?.filter((ts) => ts.active) || [];
+
+  // Fetch availability for slot preview
+  const { data: availRules } = await supabase
+    .from("availability_rules")
+    .select("*")
+    .eq("tutor_id", tutor.id);
+
+  const { data: timeOffsData } = await supabase
+    .from("time_off")
+    .select("*")
+    .eq("tutor_id", tutor.id)
+    .gte("ends_at", new Date().toISOString());
+
+  const { data: lessonsData } = await supabase
+    .from("lessons")
+    .select("starts_at, ends_at, status")
+    .eq("tutor_id", tutor.id)
+    .not("status", "in", '("canceled","late_cancel")')
+    .gte("starts_at", new Date().toISOString());
+
+  const nextSlots = getNextSlots(
+    (availRules ?? []) as AvailabilityRule[],
+    (timeOffsData ?? []) as TimeOff[],
+    (lessonsData ?? []) as ExistingLesson[],
+    {
+      buffer_minutes: tutor.buffer_minutes,
+      min_notice_hours: tutor.min_notice_hours,
+      booking_window_days: tutor.booking_window_days,
+      max_lessons_per_day: tutor.max_lessons_per_day,
+    } as BookingRules,
+    60,
+    profile.time_zone || "America/New_York",
+    10
+  );
 
   const policy = tutor.cancellation_policy as {
     full_refund_hours: number;
@@ -153,6 +188,46 @@ export default async function HomePage() {
             </div>
           )}
         </section>
+
+        {/* Availability preview */}
+        {nextSlots.length > 0 && (
+          <>
+            <Separator className="my-8" />
+            <section className="space-y-4">
+              <h2 className="text-xl font-semibold">Next Available Slots</h2>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {nextSlots.map((slot, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between rounded-lg border px-4 py-2"
+                  >
+                    <span className="text-sm">
+                      {slot.starts_at.toLocaleDateString(undefined, {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </span>
+                    <span className="text-sm font-medium">
+                      {slot.starts_at.toLocaleTimeString(undefined, {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}{" "}
+                      &ndash;{" "}
+                      {slot.ends_at.toLocaleTimeString(undefined, {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <Button variant="outline" render={<Link href="/signup" />}>
+                See full calendar
+              </Button>
+            </section>
+          </>
+        )}
 
         <Separator className="my-8" />
 

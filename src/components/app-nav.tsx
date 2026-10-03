@@ -30,6 +30,7 @@ const clientLinks = [
 const tutorLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/calendar", label: "Calendar" },
+  { href: "/subjects", label: "Subjects" },
   { href: "/clients", label: "Clients" },
   { href: "/inbox", label: "Inbox" },
 ];
@@ -89,6 +90,17 @@ export function AppNav({ user, profile }: { user: User; profile: Profile | null 
               <span className="hidden text-sm sm:inline">{profile?.full_name}</span>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
+              {profile?.role === "tutor" && (
+                <>
+                  <DropdownMenuItem onClick={() => router.push("/profile")}>
+                    Edit Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push("/policies")}>
+                    Policies
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem onClick={() => router.push("/settings")}>
                 Settings
               </DropdownMenuItem>
