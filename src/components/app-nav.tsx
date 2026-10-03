@@ -32,6 +32,7 @@ const tutorLinks = [
   { href: "/calendar", label: "Calendar" },
   { href: "/subjects", label: "Subjects" },
   { href: "/clients", label: "Clients" },
+  { href: "/messages", label: "Messages" },
   { href: "/inbox", label: "Inbox" },
 ];
 

@@ -72,12 +72,23 @@ export default async function TutorDashboardPage() {
     .eq("status", "completed")
     .is("lesson_notes", null);
 
+  // This month's earnings
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const { data: monthPayments } = await supabase
+    .from("payments")
+    .select("amount_cents")
+    .eq("tutor_id", tutor.id)
+    .in("status", ["succeeded", "partially_refunded"])
+    .gte("created_at", monthStart.toISOString());
+
+  const monthEarnings = (monthPayments ?? []).reduce((sum, p) => sum + p.amount_cents, 0);
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Dashboard</h1>
 
       {/* Stats grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <DashCard title="Today" value={todayCount ?? 0} label="lessons" href="/calendar" />
         <DashCard title="This Week" value={weekCount ?? 0} label="upcoming" href="/calendar" />
         <DashCard title="Inquiries" value={inquiryCount ?? 0} label="new" href="/inbox" />
@@ -86,6 +97,12 @@ export default async function TutorDashboardPage() {
           value={(notesDueCount ?? 0) + (noNotesCount ?? 0)}
           label="unpublished"
           href="/clients"
+        />
+        <DashCard
+          title="This Month"
+          value={`$${(monthEarnings / 100).toFixed(0)}`}
+          label="earned"
+          href="/billing"
         />
       </div>
 
@@ -145,7 +162,7 @@ function DashCard({
   href,
 }: {
   title: string;
-  value: number;
+  value: number | string;
   label: string;
   href: string;
 }) {

@@ -43,9 +43,14 @@ export default async function LessonsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Upcoming Lessons</h1>
-        <Button render={<Link href="/book" />}>
-          Book a lesson
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" render={<Link href="/lessons/history" />}>
+            History
+          </Button>
+          <Button render={<Link href="/book" />}>
+            Book a lesson
+          </Button>
+        </div>
       </div>
 
       {!lessons || lessons.length === 0 ? (
