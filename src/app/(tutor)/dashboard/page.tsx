@@ -1082,7 +1082,7 @@ export default function TutorDashboardPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Dashboard</h1>
         {userRole === "superadmin" && allTutors.length > 0 && (
-          <Select value={selectedTutorFilter} onValueChange={setSelectedTutorFilter}>
+          <Select value={selectedTutorFilter} onValueChange={(v) => setSelectedTutorFilter(v ?? "all")}>
             <SelectTrigger className="w-48">
               <SelectValue placeholder="All Tutors">
                 {selectedTutorFilter === "all"

@@ -321,7 +321,7 @@ export default function SubjectsPage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label required>Subject</Label>
-            <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+            <Select value={selectedSubject} onValueChange={(v) => setSelectedSubject(v ?? "")}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a subject..." />
               </SelectTrigger>
