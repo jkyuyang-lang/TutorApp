@@ -8,6 +8,31 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { GripVertical } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface Subject {
   id: string;
@@ -23,9 +48,83 @@ interface TutorSubject {
   durations: number[];
   prices: Record<string, number>;
   active: boolean;
+  sort_order: number;
   subjects: Subject;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Sortable subject card                                              */
+/* ------------------------------------------------------------------ */
+function SortableSubjectCard({
+  ts,
+  onToggleActive,
+  onRemove,
+}: {
+  ts: TutorSubject;
+  onToggleActive: (ts: TutorSubject) => void;
+  onRemove: (id: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: ts.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : undefined,
+  };
+
+  return (
+    <Card ref={setNodeRef} style={style} className={!ts.active ? "opacity-60" : ""}>
+      <CardContent className="flex items-center gap-3 p-4">
+        <button
+          type="button"
+          className="cursor-grab text-muted-foreground hover:text-foreground shrink-0 touch-none"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="size-4" />
+        </button>
+        <div className="space-y-1 flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{ts.subjects.name}</span>
+            {!ts.active && <Badge variant="secondary">Inactive</Badge>}
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {ts.levels.map((level) => (
+              <Badge key={level} variant="outline" className="text-xs">
+                {level}
+              </Badge>
+            ))}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {ts.durations.map((d) => (
+              <span key={d} className="mr-3">
+                {d} min — <span className="font-bold">${ts.prices[String(d)] ?? "?"}</span>
+              </span>
+            ))}
+          </p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <Button variant="ghost" size="sm" onClick={() => onToggleActive(ts)}>
+            {ts.active ? "Deactivate" : "Activate"}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-destructive"
+            onClick={() => onRemove(ts.id)}
+          >
+            Remove
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Main page                                                          */
+/* ------------------------------------------------------------------ */
 export default function SubjectsPage() {
   const [tutorId, setTutorId] = useState<string | null>(null);
   const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
@@ -39,6 +138,11 @@ export default function SubjectsPage() {
   const [levels, setLevels] = useState("");
   const [durations, setDurations] = useState("60");
   const [prices, setPrices] = useState("70");
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const loadData = useCallback(async () => {
     const supabase = createClient();
@@ -61,7 +165,7 @@ export default function SubjectsPage() {
         .from("tutor_subjects")
         .select("*, subjects(*)")
         .eq("tutor_id", tutor.id)
-        .order("created_at"),
+        .order("sort_order"),
     ]);
 
     setAllSubjects(subjectsRes.data ?? []);
@@ -85,6 +189,10 @@ export default function SubjectsPage() {
       priceMap[String(d)] = priceArr[i] ?? priceArr[0] ?? 0;
     });
 
+    const newSortOrder = tutorSubjects.length > 0
+      ? Math.max(...tutorSubjects.map((ts) => ts.sort_order)) + 1
+      : 0;
+
     const supabase = createClient();
     const { error } = await supabase.from("tutor_subjects").insert({
       tutor_id: tutorId,
@@ -97,6 +205,7 @@ export default function SubjectsPage() {
       prices: priceMap,
       format: "online",
       active: true,
+      sort_order: newSortOrder,
     });
 
     if (error) {
@@ -123,6 +232,28 @@ export default function SubjectsPage() {
     const supabase = createClient();
     await supabase.from("tutor_subjects").delete().eq("id", id);
     await loadData();
+  }
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = tutorSubjects.findIndex((ts) => ts.id === active.id);
+    const newIndex = tutorSubjects.findIndex((ts) => ts.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(tutorSubjects, oldIndex, newIndex);
+
+    // Optimistic update
+    setTutorSubjects(reordered.map((ts, i) => ({ ...ts, sort_order: i })));
+
+    // Persist
+    const supabase = createClient();
+    await Promise.all(
+      reordered.map((ts, idx) =>
+        supabase.from("tutor_subjects").update({ sort_order: idx }).eq("id", ts.id)
+      )
+    );
   }
 
   if (loading) {
@@ -157,47 +288,27 @@ export default function SubjectsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {tutorSubjects.map((ts) => (
-            <Card key={ts.id} className={!ts.active ? "opacity-60" : ""}>
-              <CardContent className="flex items-center justify-between p-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{ts.subjects.name}</span>
-                    {!ts.active && <Badge variant="secondary">Inactive</Badge>}
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {ts.levels.map((level) => (
-                      <Badge key={level} variant="outline" className="text-xs">
-                        {level}
-                      </Badge>
-                    ))}
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {ts.durations.map((d) => (
-                      <span key={d} className="mr-3">
-                        {d} min — ${ts.prices[String(d)] ?? "?"}
-                      </span>
-                    ))}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => toggleActive(ts)}>
-                    {ts.active ? "Deactivate" : "Activate"}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive"
-                    onClick={() => removeSubject(ts.id)}
-                  >
-                    Remove
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={tutorSubjects.map((ts) => ts.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-3">
+              {tutorSubjects.map((ts) => (
+                <SortableSubjectCard
+                  key={ts.id}
+                  ts={ts}
+                  onToggleActive={toggleActive}
+                  onRemove={removeSubject}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       <Separator />
@@ -209,19 +320,19 @@ export default function SubjectsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Subject</Label>
-            <select
-              value={selectedSubject}
-              onChange={(e) => setSelectedSubject(e.target.value)}
-              className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-            >
-              <option value="">Select a subject...</option>
-              {available.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({s.category})
-                </option>
-              ))}
-            </select>
+            <Label required>Subject</Label>
+            <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a subject..." />
+              </SelectTrigger>
+              <SelectContent>
+                {available.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name} ({s.category})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>Levels (comma-separated)</Label>
@@ -233,16 +344,18 @@ export default function SubjectsPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Durations (minutes, comma-separated)</Label>
+              <Label required>Durations (minutes, comma-separated)</Label>
               <Input
+                required
                 value={durations}
                 onChange={(e) => setDurations(e.target.value)}
                 placeholder="e.g., 30, 60, 90"
               />
             </div>
             <div className="space-y-2">
-              <Label>Prices ($, comma-separated, matching durations)</Label>
+              <Label required>Prices ($, comma-separated, matching durations)</Label>
               <Input
+                required
                 value={prices}
                 onChange={(e) => setPrices(e.target.value)}
                 placeholder="e.g., 40, 70, 100"

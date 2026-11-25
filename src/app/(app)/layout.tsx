@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { AppNav } from "@/components/app-nav";
+import { PublicShell } from "@/components/public-shell";
 
 export default async function AppLayout({
   children,
@@ -12,25 +12,15 @@ export default async function AppLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (!user || !user.email_confirmed_at) {
     redirect("/login");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("user_id", user.id)
-    .single();
-
   return (
-    <div className="flex min-h-screen flex-col">
-      <AppNav
-        user={user}
-        profile={profile}
-      />
-      <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-5xl">{children}</div>
-      </main>
-    </div>
+    <PublicShell>
+      <div className="px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-6xl">{children}</div>
+      </div>
+    </PublicShell>
   );
 }

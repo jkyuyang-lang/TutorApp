@@ -81,7 +81,7 @@ export default function RescheduleLessonPage() {
       .eq("id", lessonId)
       .single();
 
-    if (!data || !["confirmed", "held"].includes(data.status)) {
+    if (!data || data.status !== "confirmed") {
       router.push(`/lessons/${lessonId}`);
       return;
     }
@@ -148,7 +148,7 @@ export default function RescheduleLessonPage() {
         .gte("ends_at", new Date().toISOString()),
       supabase
         .from("lessons")
-        .select("starts_at, ends_at, status")
+        .select("starts_at, ends_at, status, hold_expires_at")
         .eq("tutor_id", lessonData.tutor_id)
         .not("status", "in", '("canceled","late_cancel")')
         .gte("starts_at", new Date().toISOString()),
@@ -171,10 +171,17 @@ export default function RescheduleLessonPage() {
       (tutor.profiles as unknown as { time_zone: string })?.time_zone ||
       "America/New_York";
 
+    // Filter out expired holds
+    const nowIso = new Date().toISOString();
+    const activeLessons = (lessonsRes.data ?? []).filter((l: { status: string; hold_expires_at?: string | null }) => {
+      if (l.status === "held" && l.hold_expires_at && l.hold_expires_at < nowIso) return false;
+      return true;
+    });
+
     const generated = generateSlots(
       (availRes.data ?? []) as AvailabilityRule[],
       (timeOffRes.data ?? []) as TimeOff[],
-      (lessonsRes.data ?? []) as ExistingLesson[],
+      activeLessons as ExistingLesson[],
       {
         buffer_minutes: tutor.buffer_minutes,
         min_notice_hours: tutor.min_notice_hours,
@@ -204,7 +211,7 @@ export default function RescheduleLessonPage() {
     const cancelRes = await fetch(`/api/lessons/${lessonId}/cancel`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason: "Rescheduled" }),
+      body: JSON.stringify({ reason: "Rescheduled", is_reschedule: true }),
     });
 
     if (!cancelRes.ok) {
@@ -250,6 +257,13 @@ export default function RescheduleLessonPage() {
       setSubmitting(false);
       return;
     }
+
+    // Step 4: Link old lesson to new lesson
+    const supabase = createClient();
+    await supabase
+      .from("lessons")
+      .update({ rescheduled_to: holdData.lesson_id })
+      .eq("id", lessonId);
 
     router.push(`/book/confirmation/${holdData.lesson_id}`);
   }
@@ -312,6 +326,7 @@ export default function RescheduleLessonPage() {
               {originalStart.toLocaleTimeString(undefined, {
                 hour: "numeric",
                 minute: "2-digit",
+                timeZoneName: "short",
               })}
             </CardDescription>
           </CardHeader>
@@ -323,7 +338,7 @@ export default function RescheduleLessonPage() {
                 </p>
                 <p className="text-sm text-yellow-700">{refund.reason}</p>
                 <p className="text-sm text-yellow-700">
-                  Fee: ${(refund.charge_amount_cents / 100).toFixed(2)}
+                  Fee: <span className="font-bold">${(refund.charge_amount_cents / 100).toFixed(2)}</span>
                 </p>
               </div>
             )}
@@ -391,7 +406,7 @@ export default function RescheduleLessonPage() {
                           >
                             {new Date(slot.starts_at).toLocaleTimeString(
                               undefined,
-                              { hour: "numeric", minute: "2-digit" }
+                              { hour: "numeric", minute: "2-digit", timeZoneName: "short" }
                             )}
                           </button>
                         );
@@ -414,7 +429,7 @@ export default function RescheduleLessonPage() {
                     at{" "}
                     {new Date(selectedSlot.starts_at).toLocaleTimeString(
                       undefined,
-                      { hour: "numeric", minute: "2-digit" }
+                      { hour: "numeric", minute: "2-digit", timeZoneName: "short" }
                     )}
                   </p>
                 </div>

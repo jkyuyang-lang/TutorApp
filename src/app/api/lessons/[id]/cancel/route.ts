@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe";
 import { calculateRefund, type CancellationPolicy } from "@/lib/refund-policy";
+import { removeLessonFromCalendar } from "@/lib/calendar";
+import { notify } from "@/lib/notify";
 
 export async function POST(
   req: NextRequest,
@@ -17,7 +19,7 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { reason } = await req.json().catch(() => ({ reason: "" }));
+  const { reason, is_reschedule } = await req.json().catch(() => ({ reason: "", is_reschedule: false }));
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -55,12 +57,25 @@ export async function POST(
 
   const policy = (lesson.tutors as unknown as { cancellation_policy: CancellationPolicy })
     ?.cancellation_policy;
+
+  // Check app-level refund period override
+  const { data: refundSetting } = await supabase
+    .from("app_settings")
+    .select("value")
+    .eq("key", "refund_period_hours")
+    .single();
+
+  const effectiveRefundHours = refundSetting?.value != null
+    ? Number(refundSetting.value)
+    : (policy?.full_refund_hours ?? 24);
+
   const lessonStart = new Date(lesson.starts_at);
   const now = new Date();
   const hoursUntilLesson = (lessonStart.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-  // Determine cancel status
-  const isLateCancel = policy && hoursUntilLesson < policy.full_refund_hours;
+  // Determine cancel status using app-level refund period
+  // Reschedules are always treated as normal cancels (not late_cancel)
+  const isLateCancel = !is_reschedule && hoursUntilLesson < effectiveRefundHours;
   const newStatus = isLateCancel ? "late_cancel" : "canceled";
 
   // Update lesson
@@ -95,7 +110,11 @@ export async function POST(
           charge_amount_cents: 0,
           reason: "Tutor canceled: full refund",
         }
-      : calculateRefund(policy, lessonStart, payment.amount_cents);
+      : calculateRefund(
+          { ...policy, full_refund_hours: effectiveRefundHours },
+          lessonStart,
+          payment.amount_cents
+        );
 
     refundResult = refund;
 
@@ -136,6 +155,17 @@ export async function POST(
       }
     }
   }
+
+  // Remove from calendar (fire-and-forget)
+  removeLessonFromCalendar(id).catch(() => {});
+
+  // Email notification (fire-and-forget)
+  notify("lesson_canceled", {
+    lesson_id: id,
+    canceled_by_profile_id: profile.id,
+    reason: reason || undefined,
+    is_late_cancel: isLateCancel,
+  });
 
   // Notify the other party
   const notifyUserId = isTutor ? (await getBookerUserId(supabase, lesson.booked_by)) : tutorUserId;

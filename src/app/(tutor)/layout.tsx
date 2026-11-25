@@ -21,7 +21,7 @@ export default async function TutorLayout({
     .single();
 
   if (!profile) redirect("/onboarding");
-  if (profile.role !== "tutor") redirect("/lessons");
+  if (profile.role !== "tutor" && profile.role !== "superadmin") redirect("/lessons");
 
   return (
     <div className="flex min-h-screen flex-col">

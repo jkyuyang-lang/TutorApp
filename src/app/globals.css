@@ -1,15 +1,22 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "../styles/tokens.css";
 
 @custom-variant dark (&:is(.dark *));
+
+html {
+  scroll-behavior: smooth;
+}
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-rubik);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-rubik);
+
+  /* shadcn semantic */
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -39,6 +46,65 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+
+  /* Brand palette — bg-gold-300, text-sage-500, etc. */
+  --color-gold-50:  var(--fh-gold-50);
+  --color-gold-100: var(--fh-gold-100);
+  --color-gold-200: var(--fh-gold-200);
+  --color-gold-300: var(--fh-gold-300);
+  --color-gold-400: var(--fh-gold-400);
+  --color-gold-500: var(--fh-gold-500);
+  --color-gold-600: var(--fh-gold-600);
+  --color-gold-700: var(--fh-gold-700);
+  --color-gold-800: var(--fh-gold-800);
+  --color-gold-900: var(--fh-gold-900);
+
+  --color-sage-50:  var(--fh-sage-50);
+  --color-sage-100: var(--fh-sage-100);
+  --color-sage-200: var(--fh-sage-200);
+  --color-sage-300: var(--fh-sage-300);
+  --color-sage-400: var(--fh-sage-400);
+  --color-sage-500: var(--fh-sage-500);
+  --color-sage-600: var(--fh-sage-600);
+  --color-sage-700: var(--fh-sage-700);
+  --color-sage-800: var(--fh-sage-800);
+  --color-sage-900: var(--fh-sage-900);
+
+  --color-navy-50:  var(--fh-navy-50);
+  --color-navy-100: var(--fh-navy-100);
+  --color-navy-200: var(--fh-navy-200);
+  --color-navy-300: var(--fh-navy-300);
+  --color-navy-400: var(--fh-navy-400);
+  --color-navy-500: var(--fh-navy-500);
+  --color-navy-600: var(--fh-navy-600);
+  --color-navy-700: var(--fh-navy-700);
+  --color-navy-800: var(--fh-navy-800);
+  --color-navy-900: var(--fh-navy-900);
+
+  --color-coral-50:  var(--fh-coral-50);
+  --color-coral-100: var(--fh-coral-100);
+  --color-coral-200: var(--fh-coral-200);
+  --color-coral-300: var(--fh-coral-300);
+  --color-coral-400: var(--fh-coral-400);
+  --color-coral-500: var(--fh-coral-500);
+  --color-coral-600: var(--fh-coral-600);
+  --color-coral-700: var(--fh-coral-700);
+  --color-coral-800: var(--fh-coral-800);
+  --color-coral-900: var(--fh-coral-900);
+
+  --color-cream: var(--fh-cream);
+
+  /* Status */
+  --color-success: var(--fh-success);
+  --color-success-light: var(--fh-success-light);
+  --color-warning: var(--fh-warning);
+  --color-warning-light: var(--fh-warning-light);
+  --color-error: var(--fh-error);
+  --color-error-light: var(--fh-error-light);
+  --color-info: var(--fh-info);
+  --color-info-light: var(--fh-info-light);
+
+  /* Radii */
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -48,74 +114,90 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ------------------------------------------------------------------ */
+/*  LIGHT THEME                                                        */
+/*  Warm golden background — bold, saturated, gallery-like             */
+/* ------------------------------------------------------------------ */
+
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background:           var(--fh-gold-300);
+  --foreground:           var(--fh-navy-900);
+  --card:                 var(--fh-cream);
+  --card-foreground:      var(--fh-navy-900);
+  --popover:              var(--fh-cream);
+  --popover-foreground:   var(--fh-navy-900);
+  --primary:              var(--fh-navy-900);
+  --primary-foreground:   var(--fh-gold-300);
+  --secondary:            var(--fh-sage-300);
+  --secondary-foreground: var(--fh-navy-900);
+  --muted:                var(--fh-gold-200);
+  --muted-foreground:     var(--fh-navy-600);
+  --accent:               var(--fh-sage-200);
+  --accent-foreground:    var(--fh-navy-900);
+  --destructive:          var(--fh-coral-500);
+  --border:               var(--fh-gold-400);
+  --input:                var(--fh-gold-400);
+  --ring:                 var(--fh-sage-300);
+  --chart-1:              var(--fh-gold-400);
+  --chart-2:              var(--fh-sage-400);
+  --chart-3:              var(--fh-navy-400);
+  --chart-4:              var(--fh-coral-400);
+  --chart-5:              var(--fh-sage-600);
+  --radius:               0.625rem;
+
+  --sidebar:                     var(--fh-navy-900);
+  --sidebar-foreground:          var(--fh-gold-100);
+  --sidebar-primary:             var(--fh-gold-300);
+  --sidebar-primary-foreground:  var(--fh-navy-900);
+  --sidebar-accent:              var(--fh-navy-700);
+  --sidebar-accent-foreground:   var(--fh-gold-100);
+  --sidebar-border:              var(--fh-navy-700);
+  --sidebar-ring:                var(--fh-sage-300);
 }
 
+/* ------------------------------------------------------------------ */
+/*  DARK THEME                                                         */
+/*  Deep navy surfaces, gold & sage accents — night gallery            */
+/* ------------------------------------------------------------------ */
+
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background:           var(--fh-navy-900);
+  --foreground:           var(--fh-gold-100);
+  --card:                 var(--fh-navy-800);
+  --card-foreground:      var(--fh-gold-50);
+  --popover:              var(--fh-navy-800);
+  --popover-foreground:   var(--fh-gold-50);
+  --primary:              var(--fh-gold-300);
+  --primary-foreground:   var(--fh-navy-900);
+  --secondary:            var(--fh-sage-300);
+  --secondary-foreground: var(--fh-navy-900);
+  --muted:                var(--fh-navy-700);
+  --muted-foreground:     var(--fh-gold-200);
+  --accent:               var(--fh-sage-700);
+  --accent-foreground:    var(--fh-sage-100);
+  --destructive:          var(--fh-coral-400);
+  --border:               var(--fh-navy-600);
+  --input:                var(--fh-navy-700);
+  --ring:                 var(--fh-sage-400);
+  --chart-1:              var(--fh-gold-300);
+  --chart-2:              var(--fh-sage-300);
+  --chart-3:              var(--fh-coral-300);
+  --chart-4:              var(--fh-gold-500);
+  --chart-5:              var(--fh-sage-500);
+
+  --sidebar:                     var(--fh-navy-900);
+  --sidebar-foreground:          var(--fh-gold-100);
+  --sidebar-primary:             var(--fh-gold-300);
+  --sidebar-primary-foreground:  var(--fh-navy-900);
+  --sidebar-accent:              var(--fh-navy-700);
+  --sidebar-accent-foreground:   var(--fh-gold-100);
+  --sidebar-border:              var(--fh-navy-700);
+  --sidebar-ring:                var(--fh-sage-400);
 }
+
+/* ------------------------------------------------------------------ */
+/*  BASE STYLES                                                        */
+/* ------------------------------------------------------------------ */
 
 @layer base {
   * {
@@ -126,5 +208,175 @@
   }
   html {
     @apply font-sans;
+  }
+
+  /* White background for all form controls */
+  select,
+  input[type="checkbox"],
+  input[type="radio"],
+  input[data-slot="input"],
+  textarea[data-slot="textarea"] {
+    background-color: white !important;
+  }
+
+  /* Light placeholder text */
+  ::placeholder {
+    color: #9ca3af !important;
+    opacity: 1;
+  }
+
+  /* Bold heading defaults */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--fh-font-heading);
+    font-weight: var(--fh-weight-bold);
+    line-height: var(--fh-leading-tight);
+    letter-spacing: var(--fh-tracking-tight);
+  }
+  h1 { font-size: var(--fh-text-5xl); }
+  h2 { font-size: var(--fh-text-4xl); }
+  h3 { font-size: var(--fh-text-3xl); font-weight: var(--fh-weight-semibold); }
+  h4 { font-size: var(--fh-text-2xl); font-weight: var(--fh-weight-semibold); }
+  h5 { font-size: var(--fh-text-xl);  font-weight: var(--fh-weight-medium); }
+  h6 { font-size: var(--fh-text-lg);  font-weight: var(--fh-weight-medium); }
+}
+
+/* ------------------------------------------------------------------ */
+/*  TYPOGRAPHY UTILITIES                                                */
+/* ------------------------------------------------------------------ */
+
+@layer utilities {
+  /* Display — billboard-scale */
+  .fh-display {
+    font-family: var(--fh-font-heading);
+    font-size: var(--fh-text-7xl);
+    font-weight: var(--fh-weight-bold);
+    line-height: var(--fh-leading-none);
+    letter-spacing: var(--fh-tracking-tighter);
+  }
+
+  /* Hero — page-level hero */
+  .fh-hero {
+    font-family: var(--fh-font-heading);
+    font-size: var(--fh-text-6xl);
+    font-weight: var(--fh-weight-bold);
+    line-height: var(--fh-leading-none);
+    letter-spacing: var(--fh-tracking-tighter);
+  }
+
+  .fh-heading-1 {
+    font-family: var(--fh-font-heading);
+    font-size: var(--fh-text-5xl);
+    font-weight: var(--fh-weight-bold);
+    line-height: var(--fh-leading-tight);
+    letter-spacing: var(--fh-tracking-tight);
+  }
+
+  .fh-heading-2 {
+    font-family: var(--fh-font-heading);
+    font-size: var(--fh-text-4xl);
+    font-weight: var(--fh-weight-bold);
+    line-height: var(--fh-leading-tight);
+    letter-spacing: var(--fh-tracking-tight);
+  }
+
+  .fh-heading-3 {
+    font-family: var(--fh-font-heading);
+    font-size: var(--fh-text-3xl);
+    font-weight: var(--fh-weight-semibold);
+    line-height: var(--fh-leading-snug);
+  }
+
+  .fh-heading-4 {
+    font-family: var(--fh-font-heading);
+    font-size: var(--fh-text-2xl);
+    font-weight: var(--fh-weight-semibold);
+    line-height: var(--fh-leading-snug);
+  }
+
+  .fh-heading-5 {
+    font-family: var(--fh-font-heading);
+    font-size: var(--fh-text-xl);
+    font-weight: var(--fh-weight-medium);
+    line-height: var(--fh-leading-snug);
+  }
+
+  /* Body */
+  .fh-body {
+    font-family: var(--fh-font-body);
+    font-size: var(--fh-text-base);
+    font-weight: var(--fh-weight-regular);
+    line-height: var(--fh-leading-normal);
+  }
+
+  .fh-body-lg {
+    font-family: var(--fh-font-body);
+    font-size: var(--fh-text-lg);
+    font-weight: var(--fh-weight-regular);
+    line-height: var(--fh-leading-relaxed);
+  }
+
+  .fh-body-sm {
+    font-family: var(--fh-font-body);
+    font-size: var(--fh-text-sm);
+    font-weight: var(--fh-weight-regular);
+    line-height: var(--fh-leading-normal);
+  }
+
+  /* Caption */
+  .fh-caption {
+    font-family: var(--fh-font-body);
+    font-size: var(--fh-text-xs);
+    font-weight: var(--fh-weight-regular);
+    line-height: var(--fh-leading-normal);
+    letter-spacing: var(--fh-tracking-wide);
+  }
+
+  /* Label — uppercase, tracked, commanding */
+  .fh-label {
+    font-family: var(--fh-font-body);
+    font-size: var(--fh-text-xs);
+    font-weight: var(--fh-weight-bold);
+    line-height: var(--fh-leading-none);
+    letter-spacing: var(--fh-tracking-widest);
+    text-transform: uppercase;
+  }
+
+  .fh-label-lg {
+    font-family: var(--fh-font-body);
+    font-size: var(--fh-text-sm);
+    font-weight: var(--fh-weight-bold);
+    line-height: var(--fh-leading-none);
+    letter-spacing: var(--fh-tracking-wider);
+    text-transform: uppercase;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /*  COLOR-BLOCKED SECTIONS                                           */
+  /*  The museum alternates gold / dark / sage sections               */
+  /* ---------------------------------------------------------------- */
+
+  .fh-section-gold {
+    background-color: var(--fh-gold-300);
+    color: var(--fh-navy-900);
+  }
+
+  .fh-section-dark {
+    background-color: var(--fh-navy-900);
+    color: var(--fh-gold-100);
+  }
+
+  .fh-section-sage {
+    background-color: var(--fh-sage-300);
+    color: var(--fh-navy-900);
+  }
+
+  .fh-section-cream {
+    background-color: var(--fh-cream);
+    color: var(--fh-navy-900);
+  }
+
+  .fh-section-coral {
+    background-color: var(--fh-coral-200);
+    color: var(--fh-navy-900);
   }
 }

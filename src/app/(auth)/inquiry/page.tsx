@@ -101,7 +101,7 @@ export default function InquiryPage() {
           )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Your name</Label>
+              <Label htmlFor="name" required>Your name</Label>
               <Input
                 id="name"
                 required
@@ -110,7 +110,7 @@ export default function InquiryPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" required>Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -141,7 +141,7 @@ export default function InquiryPage() {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="message">Message</Label>
+            <Label htmlFor="message" required>Message</Label>
             <Textarea
               id="message"
               required

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { formatPhone } from "@/lib/phone";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,8 +16,16 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Tabs,
   TabsContent,
@@ -277,7 +286,7 @@ export default function ClientDetailPage() {
           <h1 className="text-2xl font-bold">{clientProfile.full_name}</h1>
           <p className="text-sm text-muted-foreground">
             {clientProfile.time_zone}
-            {clientProfile.phone && ` · ${clientProfile.phone}`}
+            {clientProfile.phone && ` · ${formatPhone(clientProfile.phone)}`}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => router.push("/clients")}>
@@ -366,6 +375,7 @@ export default function ClientDetailPage() {
                         {end.toLocaleTimeString(undefined, {
                           hour: "numeric",
                           minute: "2-digit",
+                          timeZoneName: "short",
                         })}
                       </p>
                     </div>
@@ -440,17 +450,18 @@ export default function ClientDetailPage() {
               {learners.length > 1 && (
                 <div className="space-y-1">
                   <Label className="text-xs">Learner</Label>
-                  <select
-                    className="w-full rounded-md border px-3 py-2 text-sm"
-                    value={newNoteLearnerId}
-                    onChange={(e) => setNewNoteLearnerId(e.target.value)}
-                  >
-                    {learners.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.full_name}
-                      </option>
-                    ))}
-                  </select>
+                  <Select value={newNoteLearnerId} onValueChange={(v) => setNewNoteLearnerId(v ?? "")}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select learner" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {learners.map((l) => (
+                        <SelectItem key={l.id} value={l.id}>
+                          {l.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
               <Textarea
@@ -511,38 +522,40 @@ export default function ClientDetailPage() {
                 {learners.length > 1 && (
                   <div className="space-y-1">
                     <Label className="text-xs">Learner</Label>
-                    <select
-                      className="w-full rounded-md border px-3 py-2 text-sm"
-                      value={newGoalLearnerId}
-                      onChange={(e) => setNewGoalLearnerId(e.target.value)}
-                    >
-                      {learners.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.full_name}
-                        </option>
-                      ))}
-                    </select>
+                    <Select value={newGoalLearnerId} onValueChange={(v) => setNewGoalLearnerId(v ?? "")}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select learner" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {learners.map((l) => (
+                          <SelectItem key={l.id} value={l.id}>
+                            {l.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
                 <div className="space-y-1">
-                  <Label className="text-xs">Subject</Label>
-                  <select
-                    className="w-full rounded-md border px-3 py-2 text-sm"
-                    value={newGoalSubjectId}
-                    onChange={(e) => setNewGoalSubjectId(e.target.value)}
-                  >
-                    {subjects.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Label className="text-xs" required>Subject</Label>
+                  <Select value={newGoalSubjectId} onValueChange={(v) => setNewGoalSubjectId(v ?? "")}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select subject" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subjects.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Goal title</Label>
-                <input
-                  className="w-full rounded-md border px-3 py-2 text-sm"
+                <Label className="text-xs" required>Goal title</Label>
+                <Input
+                  required
                   value={newGoalTitle}
                   onChange={(e) => setNewGoalTitle(e.target.value)}
                   placeholder="e.g., Master quadratic equations"
@@ -599,17 +612,16 @@ export default function ClientDetailPage() {
                         </p>
                       )}
                     </div>
-                    <select
-                      className="rounded border px-2 py-1 text-xs"
-                      value={goal.status}
-                      onChange={(e) =>
-                        updateGoalStatus(goal.id, e.target.value)
-                      }
-                    >
-                      <option value="not_started">Not Started</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="met">Met</option>
-                    </select>
+                    <Select value={goal.status} onValueChange={(v) => updateGoalStatus(goal.id, v ?? goal.status)}>
+                      <SelectTrigger size="sm">
+                        <SelectValue placeholder="Not Started" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="not_started">Not Started</SelectItem>
+                        <SelectItem value="in_progress">In Progress</SelectItem>
+                        <SelectItem value="met">Met</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </CardContent>
               </Card>

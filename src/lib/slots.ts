@@ -58,13 +58,18 @@ export function generateSlots(
 ): Slot[] {
   const now = new Date();
   const start = fromDate ?? now;
-  const windowDays = days ?? bookingRules.booking_window_days;
+  const windowHours = days != null ? days * 24 : bookingRules.booking_window_days * 24;
+  const totalHours = bookingRules.min_notice_hours + windowHours;
+  const windowDays = Math.ceil(totalHours / 24);
   const minNoticeMs = bookingRules.min_notice_hours * 60 * 60 * 1000;
   const bufferMs = bookingRules.buffer_minutes * 60 * 1000;
   const durationMs = durationMinutes * 60 * 1000;
 
   // Earliest bookable time (respects min notice)
   const earliest = new Date(now.getTime() + minNoticeMs);
+
+  // Latest bookable time (booking window extends beyond the min-notice cutoff)
+  const latest = new Date(earliest.getTime() + windowHours * 60 * 60 * 1000);
 
   // Active lessons (not canceled)
   const activeBookings = lessons
@@ -115,8 +120,13 @@ export function generateSlots(
 
         // Check: slot is in the future and respects min notice
         if (slotStart < earliest.getTime()) {
-          slotStart += 30 * 60 * 1000; // advance by 30 min increments
+          slotStart += 15 * 60 * 1000;
           continue;
+        }
+
+        // Check: slot is within the booking window
+        if (slotStart >= latest.getTime()) {
+          break;
         }
 
         // Check: max lessons per day
@@ -133,7 +143,7 @@ export function generateSlots(
           (t) => slotStart < t.end && slotEnd > t.start
         );
         if (inTimeOff) {
-          slotStart += 30 * 60 * 1000;
+          slotStart += 15 * 60 * 1000;
           continue;
         }
 
@@ -142,7 +152,7 @@ export function generateSlots(
           (b) => slotStartWithBuffer < b.end && slotEndWithBuffer > b.start
         );
         if (hasConflict) {
-          slotStart += 30 * 60 * 1000;
+          slotStart += 15 * 60 * 1000;
           continue;
         }
 
@@ -211,20 +221,18 @@ function setTimeInTimezone(date: Date, time: string, timeZone: string): Date {
 
   const [hours, minutes] = time.split(":").map(Number);
 
-  // Build an ISO string with the timezone offset
-  // Use a temporary date to find the offset
+  // Build an ISO string representing this wall-clock time
   const isoStr = `${year}-${month}-${day}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`;
 
-  // Create date in the tutor's timezone by using the locale string trick
-  const tempDate = new Date(isoStr + "Z");
-  const utcDate = new Date(isoStr);
+  // Parse as UTC baseline
+  const utcBaseline = new Date(isoStr + "Z");
 
-  // Get the offset for this timezone at this date
+  // Get the timezone offset at this point in time
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone,
     timeZoneName: "shortOffset",
   });
-  const tzParts = formatter.formatToParts(utcDate);
+  const tzParts = formatter.formatToParts(utcBaseline);
   const tzName = tzParts.find((p) => p.type === "timeZoneName")?.value ?? "";
 
   // Parse offset like "GMT-5" or "GMT+5:30"
@@ -233,9 +241,9 @@ function setTimeInTimezone(date: Date, time: string, timeZone: string): Date {
     const offsetHours = parseInt(offsetMatch[1], 10);
     const offsetMinutes = parseInt(offsetMatch[2] ?? "0", 10);
     const totalOffsetMs = (offsetHours * 60 + (offsetHours < 0 ? -offsetMinutes : offsetMinutes)) * 60 * 1000;
-    return new Date(tempDate.getTime() + totalOffsetMs);
+    // UTC = local_time - offset (e.g., 9:00 AM ET (GMT-5) = 14:00 UTC)
+    return new Date(utcBaseline.getTime() - totalOffsetMs);
   }
 
-  // Fallback: just use the UTC interpretation
-  return tempDate;
+  return utcBaseline;
 }

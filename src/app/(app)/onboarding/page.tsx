@@ -14,15 +14,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-type Step = "role" | "learners" | "done";
+import { GradeLevelSelect } from "@/components/grade-level-select";
+import { Trash2 } from "lucide-react";
 
 interface LearnerForm {
   full_name: string;
@@ -31,81 +24,13 @@ interface LearnerForm {
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = useState<Step>("role");
-  const [role, setRole] = useState<"student" | "parent">("student");
-  const [timeZone, setTimeZone] = useState(
-    Intl.DateTimeFormat().resolvedOptions().timeZone
-  );
+  const searchParams = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+  const redirectTo = searchParams.get("redirect") || "";
   const [learners, setLearners] = useState<LearnerForm[]>([
     { full_name: "", grade_level: "" },
   ]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  async function handleRoleSubmit() {
-    setLoading(true);
-    setError(null);
-
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      router.push("/login");
-      return;
-    }
-
-    // Check if profile already exists
-    const { data: existing } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("user_id", user.id)
-      .single();
-
-    if (existing) {
-      // Profile already exists, skip to lessons
-      router.push("/lessons");
-      return;
-    }
-
-    // Create profile
-    const { error: profileError } = await supabase.from("profiles").insert({
-      user_id: user.id,
-      role,
-      full_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
-      time_zone: timeZone,
-    });
-
-    if (profileError) {
-      setError(profileError.message);
-      setLoading(false);
-      return;
-    }
-
-    if (role === "student") {
-      // Create a self-learner record
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("user_id", user.id)
-        .single();
-
-      if (profile) {
-        await supabase.from("learners").insert({
-          account_holder_id: profile.id,
-          is_self: true,
-          full_name: user.user_metadata?.full_name || "Self",
-        });
-      }
-
-      router.push("/lessons");
-      router.refresh();
-    } else {
-      setStep("learners");
-    }
-    setLoading(false);
-  }
 
   async function handleLearnersSubmit() {
     setLoading(true);
@@ -128,21 +53,18 @@ export default function OnboardingPage() {
       return;
     }
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("user_id", user.id)
-      .single();
-
-    if (!profile) {
-      setError("Profile not found. Please try again.");
+    // Ensure profile exists via API (bypasses RLS)
+    const profileRes = await fetch("/api/auth/ensure-profile", { method: "POST" });
+    if (!profileRes.ok) {
+      setError("Failed to set up profile. Please try again.");
       setLoading(false);
       return;
     }
+    const { profile_id } = await profileRes.json();
 
     const { error: learnersError } = await supabase.from("learners").insert(
       validLearners.map((l) => ({
-        account_holder_id: profile.id,
+        account_holder_id: profile_id,
         full_name: l.full_name.trim(),
         grade_level: l.grade_level || null,
         is_self: false,
@@ -155,7 +77,7 @@ export default function OnboardingPage() {
       return;
     }
 
-    router.push("/lessons");
+    router.push(redirectTo || "/lessons");
     router.refresh();
   }
 
@@ -175,86 +97,8 @@ export default function OnboardingPage() {
     }
   }
 
-  if (step === "role") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Welcome! Let&apos;s get started</CardTitle>
-            <CardDescription>
-              Tell us about yourself so we can set up your account.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {error && (
-              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                {error}
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label>I am a...</Label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setRole("student")}
-                  className={`rounded-lg border-2 p-4 text-left transition-colors ${
-                    role === "student"
-                      ? "border-primary bg-primary/5"
-                      : "border-muted hover:border-muted-foreground/30"
-                  }`}
-                >
-                  <div className="font-medium">Student</div>
-                  <div className="text-sm text-muted-foreground">
-                    I&apos;m booking lessons for myself
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRole("parent")}
-                  className={`rounded-lg border-2 p-4 text-left transition-colors ${
-                    role === "parent"
-                      ? "border-primary bg-primary/5"
-                      : "border-muted hover:border-muted-foreground/30"
-                  }`}
-                >
-                  <div className="font-medium">Parent</div>
-                  <div className="text-sm text-muted-foreground">
-                    I&apos;m booking for my child
-                  </div>
-                </button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="timezone">Time zone</Label>
-              <Select value={timeZone} onValueChange={(val) => { if (val) setTimeZone(val); }}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Intl.supportedValuesOf("timeZone")
-                    .filter((tz) => tz.startsWith("America/") || tz.startsWith("US/") || tz.startsWith("Europe/") || tz.startsWith("Asia/") || tz.startsWith("Pacific/"))
-                    .map((tz) => (
-                      <SelectItem key={tz} value={tz}>
-                        {tz.replace(/_/g, " ")}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button onClick={handleRoleSubmit} className="w-full" disabled={loading}>
-              {loading ? "Setting up..." : "Continue"}
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
-    );
-  }
-
-  // Step: learners (parent flow)
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4">
+    <div className="flex flex-1 items-center justify-center px-4 py-16">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Add your children</CardTitle>
@@ -269,43 +113,46 @@ export default function OnboardingPage() {
             </div>
           )}
           {learners.map((learner, index) => (
-            <div key={index} className="space-y-3 rounded-lg border p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Child {index + 1}</span>
-                {learners.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeLearner(index)}
-                    className="text-sm text-muted-foreground hover:text-destructive"
-                  >
-                    Remove
-                  </button>
-                )}
+            <div key={index} className="flex items-center justify-between rounded-md border p-3">
+              <div className="flex-1 space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor={`name-${index}`} className="text-xs" required>Name</Label>
+                  <Input
+                    id={`name-${index}`}
+                    value={learner.full_name}
+                    onChange={(e) => updateLearner(index, "full_name", e.target.value)}
+                    placeholder="Child's name"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`grade-${index}`} className="text-xs">Grade level (optional)</Label>
+                  <GradeLevelSelect
+                    id={`grade-${index}`}
+                    value={learner.grade_level}
+                    onChange={(val) => updateLearner(index, "grade_level", val)}
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor={`name-${index}`}>Name</Label>
-                <Input
-                  id={`name-${index}`}
-                  value={learner.full_name}
-                  onChange={(e) => updateLearner(index, "full_name", e.target.value)}
-                  placeholder="Child's name"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor={`grade-${index}`}>Grade level (optional)</Label>
-                <Input
-                  id={`grade-${index}`}
-                  value={learner.grade_level}
-                  onChange={(e) => updateLearner(index, "grade_level", e.target.value)}
-                  placeholder="e.g., 8th grade"
-                />
-              </div>
+              {learners.length > 1 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-2 shrink-0 text-destructive hover:text-destructive"
+                  onClick={() => removeLearner(index)}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              )}
             </div>
           ))}
-          <Button type="button" variant="outline" onClick={addLearner} className="w-full">
+          <button
+            type="button"
+            className="w-full rounded-lg border-2 border-dashed border-muted p-4 text-sm text-muted-foreground hover:border-gold-400/30 hover:text-foreground transition-colors"
+            onClick={addLearner}
+          >
             + Add another child
-          </Button>
+          </button>
         </CardContent>
         <CardFooter>
           <Button onClick={handleLearnersSubmit} className="w-full" disabled={loading}>

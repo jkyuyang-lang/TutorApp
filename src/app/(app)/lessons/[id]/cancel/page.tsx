@@ -18,6 +18,7 @@ import {
   calculateRefund,
   type CancellationPolicy,
 } from "@/lib/refund-policy";
+import { LoadingPlaceholder } from "@/components/loading-placeholder";
 
 interface LessonData {
   id: string;
@@ -122,9 +123,7 @@ export default function CancelLessonPage() {
   }
 
   if (loading || !lesson) {
-    return (
-      <p className="py-12 text-center text-muted-foreground">Loading...</p>
-    );
+    return <LoadingPlaceholder />;
   }
 
   if (["canceled", "late_cancel", "completed"].includes(lesson.status)) {
@@ -161,6 +160,7 @@ export default function CancelLessonPage() {
             {start.toLocaleTimeString(undefined, {
               hour: "numeric",
               minute: "2-digit",
+              timeZoneName: "short",
             })}
           </CardDescription>
         </CardHeader>
@@ -171,18 +171,18 @@ export default function CancelLessonPage() {
               <p className="text-sm text-muted-foreground">{refund.reason}</p>
               <div className="flex justify-between text-sm">
                 <span>Original payment</span>
-                <span>${(lesson.amount_cents / 100).toFixed(2)}</span>
+                <span className="font-bold">${(lesson.amount_cents / 100).toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm font-medium">
                 <span>Refund amount</span>
-                <span className="text-green-600">
-                  ${(refund.refund_amount_cents / 100).toFixed(2)}
+                <span className="font-bold text-green-600">
+                  +${(refund.refund_amount_cents / 100).toFixed(2)}
                 </span>
               </div>
               {refund.charge_amount_cents > 0 && (
                 <div className="flex justify-between text-sm">
                   <span>Cancellation fee</span>
-                  <span className="text-destructive">
+                  <span className="font-bold text-destructive">
                     ${(refund.charge_amount_cents / 100).toFixed(2)}
                   </span>
                 </div>

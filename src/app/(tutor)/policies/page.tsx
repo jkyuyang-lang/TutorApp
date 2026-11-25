@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CollapsibleCard } from "@/components/collapsible-card";
 
-interface TutorSettings {
-  id: string;
+interface PolicySettings {
   buffer_minutes: number;
   min_notice_hours: number;
   booking_window_days: number;
@@ -21,31 +22,43 @@ interface TutorSettings {
 }
 
 export default function PoliciesPage() {
-  const [settings, setSettings] = useState<TutorSettings | null>(null);
+  const router = useRouter();
+  const [settings, setSettings] = useState<PolicySettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
+    // Verify superadmin role client-side before fetching
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     const { data: profile } = await supabase
-      .from("profiles").select("id").eq("user_id", user.id).single();
-    if (!profile) return;
-
-    const { data: tutor } = await supabase
-      .from("tutors")
-      .select("id, buffer_minutes, min_notice_hours, booking_window_days, max_lessons_per_day, cancellation_policy")
-      .eq("profile_id", profile.id)
+      .from("profiles")
+      .select("role")
+      .eq("user_id", user.id)
       .single();
 
-    if (tutor) {
-      setSettings(tutor as TutorSettings);
+    if (!profile || profile.role !== "superadmin") {
+      router.replace("/dashboard");
+      return;
+    }
+
+    // Load policies via API (uses service client, bypasses RLS)
+    const res = await fetch("/api/admin/policies");
+    if (!res.ok) {
+      setMessage("Error: Failed to load policies.");
+      setLoading(false);
+      return;
+    }
+
+    const data = await res.json();
+    if (data.policies) {
+      setSettings(data.policies as PolicySettings);
     }
     setLoading(false);
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     loadData();
@@ -56,22 +69,17 @@ export default function PoliciesPage() {
     setSaving(true);
     setMessage(null);
 
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("tutors")
-      .update({
-        buffer_minutes: settings.buffer_minutes,
-        min_notice_hours: settings.min_notice_hours,
-        booking_window_days: settings.booking_window_days,
-        max_lessons_per_day: settings.max_lessons_per_day,
-        cancellation_policy: settings.cancellation_policy,
-      })
-      .eq("id", settings.id);
+    const res = await fetch("/api/admin/policies", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(settings),
+    });
 
-    if (error) {
-      setMessage(`Error: ${error.message}`);
+    const data = await res.json();
+    if (!res.ok) {
+      setMessage(`Error: ${data.error || "Failed to save policies."}`);
     } else {
-      setMessage("Policies saved.");
+      setMessage("Policies saved and applied to all tutors.");
     }
     setSaving(false);
   }
@@ -84,7 +92,10 @@ export default function PoliciesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Policies & Booking Rules</h1>
+      <div>
+        <h1 className="text-2xl font-bold">Policies & Booking Rules</h1>
+        <p className="text-sm text-muted-foreground">These settings apply to all tutors.</p>
+      </div>
 
       {message && (
         <div
@@ -99,19 +110,16 @@ export default function PoliciesPage() {
       )}
 
       {/* Booking rules */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Booking Rules</CardTitle>
-          <CardDescription>Control how clients book lessons.</CardDescription>
-        </CardHeader>
+      <CollapsibleCard title="Booking Rules" description="Control how clients book lessons." defaultOpen>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Buffer between lessons (minutes)</Label>
+              <Label required>Buffer between lessons (minutes)</Label>
               <Input
                 type="number"
                 min="0"
                 max="60"
+                required
                 value={settings.buffer_minutes}
                 onChange={(e) =>
                   setSettings({ ...settings, buffer_minutes: parseInt(e.target.value) || 0 })
@@ -119,10 +127,11 @@ export default function PoliciesPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Minimum notice (hours)</Label>
+              <Label required>Minimum notice (hours)</Label>
               <Input
                 type="number"
                 min="0"
+                required
                 value={settings.min_notice_hours}
                 onChange={(e) =>
                   setSettings({ ...settings, min_notice_hours: parseInt(e.target.value) || 0 })
@@ -130,13 +139,14 @@ export default function PoliciesPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Booking window (days ahead)</Label>
+              <Label required>Booking window (days ahead)</Label>
               <Input
                 type="number"
                 min="1"
+                required
                 value={settings.booking_window_days}
                 onChange={(e) =>
-                  setSettings({ ...settings, booking_window_days: parseInt(e.target.value) || 30 })
+                  setSettings({ ...settings, booking_window_days: parseInt(e.target.value) || 60 })
                 }
               />
             </div>
@@ -156,23 +166,22 @@ export default function PoliciesPage() {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </CollapsibleCard>
 
       {/* Cancellation policy */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Cancellation Policy</CardTitle>
-          <CardDescription>
-            Displayed to clients at checkout. Applied automatically.
-          </CardDescription>
-        </CardHeader>
+      <CollapsibleCard
+        title="Cancellation Policy"
+        description="Displayed to clients at checkout. Applied automatically."
+        defaultOpen
+      >
         <CardContent className="space-y-4">
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label>Full refund if canceled before (hours)</Label>
+              <Label required>Full refund if canceled before (hours)</Label>
               <Input
                 type="number"
                 min="0"
+                required
                 value={policy.full_refund_hours}
                 onChange={(e) =>
                   setSettings({
@@ -186,11 +195,12 @@ export default function PoliciesPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Partial refund % (under cutoff)</Label>
+              <Label required>Partial refund % (under cutoff)</Label>
               <Input
                 type="number"
                 min="0"
                 max="100"
+                required
                 value={policy.partial_refund_pct}
                 onChange={(e) =>
                   setSettings({
@@ -204,11 +214,12 @@ export default function PoliciesPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>No-show charge %</Label>
+              <Label required>No-show charge %</Label>
               <Input
                 type="number"
                 min="0"
                 max="100"
+                required
                 value={policy.no_show_charge_pct}
                 onChange={(e) =>
                   setSettings({
@@ -228,12 +239,15 @@ export default function PoliciesPage() {
             No-show = {policy.no_show_charge_pct}% charged.
           </p>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="justify-end gap-2">
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            Cancel
+          </Button>
           <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : "Save policies"}
+            {saving ? "Saving..." : "Save"}
           </Button>
         </CardFooter>
-      </Card>
+      </CollapsibleCard>
     </div>
   );
 }

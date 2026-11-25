@@ -36,6 +36,15 @@ create policy "Tutors can read client profiles"
     )
   );
 
+create policy "Clients can read tutor profiles"
+  on profiles for select using (
+    id in (
+      select t.profile_id from tutors t
+      join tutor_clients tc on tc.tutor_id = t.id
+      where tc.account_holder_id = get_my_profile_id()
+    )
+  );
+
 -- ============================================================
 -- TUTORS
 -- ============================================================
@@ -157,6 +166,9 @@ create policy "Booker can update own lessons"
 
 create policy "Tutor can update assigned lessons"
   on lessons for update using (tutor_id = get_my_tutor_id());
+
+create policy "Tutor can delete assigned lessons"
+  on lessons for delete using (tutor_id = get_my_tutor_id());
 
 -- Parent can see lessons for linked learners
 create policy "Parent sees linked learner lessons"

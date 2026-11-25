@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { goalStatusColors } from "@/lib/status-colors";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -55,11 +56,6 @@ export default async function ProgressPage() {
         .order("created_at", { ascending: false })
     : { data: [] };
 
-  const goalStatusColors: Record<string, string> = {
-    not_started: "bg-gray-100 text-gray-800",
-    in_progress: "bg-blue-100 text-blue-800",
-    met: "bg-green-100 text-green-800",
-  };
 
   return (
     <div className="space-y-6">

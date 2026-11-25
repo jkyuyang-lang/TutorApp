@@ -6,11 +6,11 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/password-input";
 import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -51,47 +51,58 @@ function LoginForm() {
     }
 
     // Check if user has a profile — if not, redirect to onboarding
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
     const { data: profile } = await supabase
       .from("profiles")
       .select("id, role")
+      .eq("user_id", currentUser!.id)
       .single();
 
+    // Full page navigation to refresh the nav/layout with authenticated state
     if (!profile) {
-      router.push("/onboarding");
-    } else if (profile.role === "tutor") {
-      router.push("/dashboard");
+      window.location.href = "/onboarding";
+    } else if (profile.role === "tutor" || profile.role === "superadmin") {
+      window.location.href = "/dashboard";
     } else {
-      router.push(redirect);
+      window.location.href = redirect;
     }
-
-    router.refresh();
   }
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="text-center">
         <CardTitle>Welcome back</CardTitle>
-        <CardDescription>Log in to your tutoring account.</CardDescription>
+        <p className="text-sm text-muted-foreground">
+          Log in to your tutoring account.
+        </p>
       </CardHeader>
-      <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
-          {error && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
-            </div>
-          )}
-          {searchParams.get("error") === "auth" && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              There was a problem verifying your email. Please try again.
-            </div>
-          )}
-          {searchParams.get("message") === "password-reset" && (
-            <div className="rounded-md bg-green-500/10 p-3 text-sm text-green-700">
-              Password updated successfully. Please log in.
-            </div>
-          )}
+
+      <CardContent className="space-y-4">
+        {error && (
+          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+            {error}
+          </div>
+        )}
+        {(searchParams.get("error") === "auth" || searchParams.get("error") === "verification") && (
+          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+            There was a problem verifying your email. Please try again.
+          </div>
+        )}
+        {searchParams.get("verified") === "true" && (
+          <div className="rounded-md bg-green-500/10 p-3 text-sm text-green-700">
+            Email verified successfully! Please log in.
+          </div>
+        )}
+        {searchParams.get("message") === "password-reset" && (
+          <div className="rounded-md bg-green-500/10 p-3 text-sm text-green-700">
+            Password updated successfully. Please log in.
+          </div>
+        )}
+
+        {/* Email login */}
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email" required>Email</Label>
             <Input
               id="email"
               type="email"
@@ -103,7 +114,7 @@ function LoginForm() {
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" required>Password</Label>
               <Link
                 href="/forgot-password"
                 className="text-sm text-muted-foreground hover:underline"
@@ -111,27 +122,27 @@ function LoginForm() {
                 Forgot password?
               </Link>
             </div>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-4">
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Logging in..." : "Log in"}
           </Button>
-          <p className="text-sm text-muted-foreground">
-            Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-primary hover:underline">
-              Sign up
-            </Link>
-          </p>
-        </CardFooter>
-      </form>
+        </form>
+      </CardContent>
+
+      <CardFooter className="justify-center">
+        <p className="text-sm text-muted-foreground">
+          Don&apos;t have an account?{" "}
+          <Link href="/signup" className="text-primary font-medium hover:underline">
+            Sign up
+          </Link>
+        </p>
+      </CardFooter>
     </Card>
   );
 }
