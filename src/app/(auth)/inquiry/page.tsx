@@ -46,18 +46,22 @@ export default function InquiryPage() {
     setError(null);
     setLoading(true);
 
-    const supabase = createClient();
-    const { error } = await supabase.from("inquiries").insert({
-      tutor_id: tutorId,
-      name,
-      email,
-      learner_grade: learnerGrade || null,
-      subject: subject || null,
-      message,
+    const res = await fetch("/api/inquiry", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tutor_id: tutorId,
+        name,
+        email,
+        learner_grade: learnerGrade || null,
+        subject: subject || null,
+        message,
+      }),
     });
 
-    if (error) {
-      setError(error.message);
+    if (!res.ok) {
+      const data = await res.json();
+      setError(data.error || "Failed to send message");
       setLoading(false);
       return;
     }
