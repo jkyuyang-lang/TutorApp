@@ -70,7 +70,7 @@ export function SubjectSearch({ subjects, dropdownDirection = "up", variant = "h
   return (
     <div ref={wrapperRef} className={variant === "inline" ? "" : "pt-2"}>
       <div className="relative">
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -98,11 +98,26 @@ export function SubjectSearch({ subjects, dropdownDirection = "up", variant = "h
           </div>
           <Button
             size="md"
-            className={buttonClass}
+            className={`${buttonClass} w-full sm:w-auto`}
             disabled={!selected}
             render={selected ? <Link href={`/browse?subject=${selected.id}`} /> : undefined}
           >
-            Find a tutor
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="sm:hidden"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <span>Find a tutor</span>
           </Button>
         </div>
 
