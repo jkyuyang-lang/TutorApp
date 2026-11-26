@@ -327,11 +327,17 @@ export default async function HomePage() {
 
   const aboutDefaults = {
     image: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=1920&q=80",
+    label: tutor.years_experience ? `${tutor.years_experience}+ years of experience` : "Experienced educator",
+    title: `About ${firstName}`,
+    description: tutor.credentials || `Dedicated to helping students build confidence, master challenging material, and develop the skills they need to succeed — one lesson at a time.`,
     buttonText: "Get in touch",
   };
   const about = merge(aboutDefaults, siteContent.about);
   const aboutFields: FieldSchema[] = [
     { type: "image", label: "Background Image", key: "image" },
+    { type: "text", label: "Label", key: "label" },
+    { type: "text", label: "Title", key: "title" },
+    { type: "textarea", label: "Description", key: "description" },
     { type: "text", label: "Button Text", key: "buttonText" },
   ];
 
@@ -663,10 +669,10 @@ export default async function HomePage() {
           <div className="relative z-10 flex h-full items-end">
             <div className="mx-auto w-full max-w-6xl px-6 pb-12">
               <p className="text-sm text-gold-300/80 mb-1">
-                {tutor.years_experience ? `${tutor.years_experience}+ years of experience` : "Experienced educator"}
+                {about.label as string}
               </p>
-              <h2 className="text-4xl font-bold text-white sm:text-5xl tracking-tight">About {firstName}</h2>
-              {tutor.credentials && <p className="mt-2 text-gold-100/60 max-w-lg">{tutor.credentials}</p>}
+              <h2 className="text-4xl font-bold text-white sm:text-5xl tracking-tight">{about.title as string}</h2>
+              <p className="mt-2 text-gold-100/60 max-w-lg">{about.description as string}</p>
               <div className="mt-4">
                 <Button className="bg-gold-400 text-navy-900 hover:bg-gold-300 font-semibold" render={<a href="#contact" />}>
                   {about.buttonText as string}
