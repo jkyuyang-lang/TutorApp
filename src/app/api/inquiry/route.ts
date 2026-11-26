@@ -15,18 +15,27 @@ export async function POST(req: Request) {
   const admin = createServiceClient();
 
   // Insert inquiry
-  const { error: insertError } = await admin.from("inquiries").insert({
+  const { data: inquiry, error: insertError } = await admin.from("inquiries").insert({
     tutor_id,
     name,
     email,
     learner_grade: learner_grade || null,
     subject: subject || null,
     message,
-  });
+  }).select("id, created_at").single();
 
-  if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+  if (insertError || !inquiry) {
+    return NextResponse.json({ error: insertError?.message ?? "Insert failed" }, { status: 500 });
   }
+
+  // Store the initial message in the conversation thread
+  await admin.from("inquiry_messages").insert({
+    inquiry_id: inquiry.id,
+    sender_type: "inquirer",
+    sender_name: name,
+    content: message,
+    created_at: inquiry.created_at,
+  });
 
   // Get tutor's profile to find their email, plus superadmin emails
   const { data: tutor } = await admin

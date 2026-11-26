@@ -9,6 +9,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { TabBar } from "@/components/tab-bar";
 import { EmptyState } from "@/components/empty-state";
 
+interface InquiryMessage {
+  id: string;
+  inquiry_id: string;
+  sender_type: "inquirer" | "tutor";
+  sender_name: string;
+  content: string;
+  created_at: string;
+}
+
 interface Inquiry {
   id: string;
   name: string;
@@ -18,6 +27,7 @@ interface Inquiry {
   message: string;
   status: string;
   created_at: string;
+  messages?: InquiryMessage[];
 }
 
 export default function InboxPage() {
@@ -28,6 +38,7 @@ export default function InboxPage() {
   const [sending, setSending] = useState(false);
   const [activeTab, setActiveTab] = useState("active");
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [expandedThread, setExpandedThread] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     const supabase = createClient();
@@ -52,7 +63,29 @@ export default function InboxPage() {
     }
 
     const { data } = await query;
-    setInquiries(data ?? []);
+    const inquiryList: Inquiry[] = data ?? [];
+
+    // Fetch messages for all inquiries
+    if (inquiryList.length > 0) {
+      const ids = inquiryList.map((i) => i.id);
+      const { data: messages } = await supabase
+        .from("inquiry_messages")
+        .select("*")
+        .in("inquiry_id", ids)
+        .order("created_at", { ascending: true });
+
+      const msgsByInquiry = new Map<string, InquiryMessage[]>();
+      for (const msg of messages ?? []) {
+        const list = msgsByInquiry.get(msg.inquiry_id) ?? [];
+        list.push(msg as InquiryMessage);
+        msgsByInquiry.set(msg.inquiry_id, list);
+      }
+      for (const inq of inquiryList) {
+        inq.messages = msgsByInquiry.get(inq.id) ?? [];
+      }
+    }
+
+    setInquiries(inquiryList);
     setLoading(false);
   }, []);
 
@@ -139,15 +172,64 @@ export default function InboxPage() {
                     {inq.learner_grade && <>Grade: {inq.learner_grade}</>}
                   </p>
                 )}
-                <p className="text-sm">{inq.message}</p>
-                <p className="text-xs text-muted-foreground">
-                  {new Date(inq.created_at).toLocaleDateString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
-                </p>
+                {/* Show latest message or full thread */}
+                {inq.messages && inq.messages.length > 1 && expandedThread !== inq.id ? (
+                  <>
+                    <p className="text-sm">{inq.messages[inq.messages.length - 1].content}</p>
+                    <button
+                      className="text-xs text-primary hover:underline"
+                      onClick={() => setExpandedThread(inq.id)}
+                    >
+                      View full thread ({inq.messages.length} messages)
+                    </button>
+                  </>
+                ) : inq.messages && inq.messages.length > 1 ? (
+                  <div className="space-y-2">
+                    {inq.messages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`rounded-md p-3 text-sm ${
+                          msg.sender_type === "inquirer"
+                            ? "bg-blue-50"
+                            : "bg-muted/50"
+                        }`}
+                      >
+                        <p className="text-xs text-muted-foreground mb-1">
+                          <span className="font-medium">
+                            {msg.sender_name}
+                            {msg.sender_type === "tutor" && " (Tutor)"}
+                          </span>
+                          {" · "}
+                          {new Date(msg.created_at).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                      </div>
+                    ))}
+                    <button
+                      className="text-xs text-muted-foreground hover:underline"
+                      onClick={() => setExpandedThread(null)}
+                    >
+                      Collapse thread
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm">{inq.message}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(inq.created_at).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </>
+                )}
 
                 {activeTab === "active" ? (
                   replyingTo === inq.id ? (

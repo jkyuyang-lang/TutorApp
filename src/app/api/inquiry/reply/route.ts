@@ -38,9 +38,41 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Inquiry not found" }, { status: 404 });
   }
 
-  // Send reply email to the inquiry sender
+  // Fetch existing conversation thread
+  const { data: thread } = await admin
+    .from("inquiry_messages")
+    .select("*")
+    .eq("inquiry_id", inquiryId)
+    .order("created_at", { ascending: true });
+
   const senderName = profile.full_name || "TutorApp";
 
+  // Store the reply in inquiry_messages
+  await admin.from("inquiry_messages").insert({
+    inquiry_id: inquiryId,
+    sender_type: "tutor",
+    sender_name: senderName,
+    content: replyMessage,
+  });
+
+  // Build conversation history HTML for the email
+  const historyHtml = (thread ?? [])
+    .map((msg) => {
+      const isInquirer = msg.sender_type === "inquirer";
+      const label = isInquirer ? msg.sender_name : `${msg.sender_name} (Tutor)`;
+      const date = new Date(msg.created_at).toLocaleDateString(undefined, {
+        month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+      });
+      return `
+        <div style="padding: 10px 12px; margin-bottom: 8px; border-radius: 8px; background: ${isInquirer ? "#f0f4ff" : "#f7f7f7"};">
+          <p style="margin: 0 0 4px; font-size: 12px; color: #888;"><strong>${label}</strong> · ${date}</p>
+          <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #333; white-space: pre-wrap;">${msg.content}</p>
+        </div>
+      `;
+    })
+    .join("");
+
+  // Send reply email with full conversation trail
   await sendEmail({
     to: inquiry.email,
     subject: `Re: Your inquiry${inquiry.subject ? ` about ${inquiry.subject}` : ""}`,
@@ -54,13 +86,12 @@ export async function POST(req: Request) {
           <p style="margin: 0; color: #333; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${replyMessage}</p>
         </div>
         <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;" />
+        <p style="color: #888; font-size: 13px; font-weight: 600; margin-bottom: 8px;">Conversation history</p>
+        ${historyHtml}
+        <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;" />
         <p style="color: #888; font-size: 12px;">
           This is a reply to your inquiry on TutorApp. You can reply directly to this email.
         </p>
-        <div style="margin-top: 16px; padding: 12px; background: #fafafa; border-radius: 8px;">
-          <p style="color: #999; font-size: 12px; margin: 0 0 4px;">Your original message:</p>
-          <p style="color: #888; font-size: 13px; margin: 0; line-height: 1.4;">${inquiry.message}</p>
-        </div>
       </div>
     `,
   });
