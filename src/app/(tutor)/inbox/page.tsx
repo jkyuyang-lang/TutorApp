@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { TabBar } from "@/components/tab-bar";
+import { EmptyState } from "@/components/empty-state";
 
 interface Inquiry {
   id: string;
@@ -19,12 +21,13 @@ interface Inquiry {
 }
 
 export default function InboxPage() {
-  const [tutorId, setTutorId] = useState<string | null>(null);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
+  const [activeTab, setActiveTab] = useState("active");
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     const supabase = createClient();
@@ -32,21 +35,23 @@ export default function InboxPage() {
     if (!user) return;
 
     const { data: profile } = await supabase
-      .from("profiles").select("id").eq("user_id", user.id).single();
+      .from("profiles").select("id, role").eq("user_id", user.id).single();
     if (!profile) return;
 
-    const { data: tutor } = await supabase
-      .from("tutors").select("id").eq("profile_id", profile.id).single();
-    if (!tutor) return;
-
-    setTutorId(tutor.id);
-
-    const { data } = await supabase
+    // Superadmins see all inquiries, tutors see their own
+    let query = supabase
       .from("inquiries")
       .select("*")
-      .eq("tutor_id", tutor.id)
       .order("created_at", { ascending: false });
 
+    if (profile.role === "tutor") {
+      const { data: tutor } = await supabase
+        .from("tutors").select("id").eq("profile_id", profile.id).single();
+      if (!tutor) return;
+      query = query.eq("tutor_id", tutor.id);
+    }
+
+    const { data } = await query;
     setInquiries(data ?? []);
     setLoading(false);
   }, []);
@@ -58,6 +63,14 @@ export default function InboxPage() {
   async function updateStatus(id: string, status: string) {
     const supabase = createClient();
     await supabase.from("inquiries").update({ status }).eq("id", id);
+    await loadData();
+  }
+
+  async function deleteInquiry(id: string) {
+    setDeleting(id);
+    const supabase = createClient();
+    await supabase.from("inquiries").delete().eq("id", id);
+    setDeleting(null);
     await loadData();
   }
 
@@ -77,6 +90,15 @@ export default function InboxPage() {
     }
   }
 
+  const activeInquiries = inquiries.filter((i) => i.status !== "archived");
+  const archivedInquiries = inquiries.filter((i) => i.status === "archived");
+  const displayList = activeTab === "active" ? activeInquiries : archivedInquiries;
+
+  const tabs = [
+    { key: "active", label: "Active", count: activeInquiries.length },
+    { key: "archived", label: "Archived", count: archivedInquiries.length },
+  ];
+
   if (loading) {
     return <p className="py-12 text-center text-muted-foreground">Loading...</p>;
   }
@@ -85,15 +107,18 @@ export default function InboxPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Inbox & Inquiries</h1>
 
-      {inquiries.length === 0 ? (
-        <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">
-            No inquiries yet. They&apos;ll appear here when visitors submit the contact form.
-          </CardContent>
-        </Card>
+      <TabBar tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+
+      {displayList.length === 0 ? (
+        <EmptyState
+          message={activeTab === "active"
+            ? "No active inquiries. They'll appear here when visitors submit the contact form."
+            : "No archived inquiries."
+          }
+        />
       ) : (
         <div className="space-y-3">
-          {inquiries.map((inq) => (
+          {displayList.map((inq) => (
             <Card key={inq.id}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
@@ -123,59 +148,76 @@ export default function InboxPage() {
                     minute: "2-digit",
                   })}
                 </p>
-                {replyingTo === inq.id ? (
-                  <div className="space-y-2 pt-2">
-                    <Textarea
-                      value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
-                      placeholder={`Reply to ${inq.name}...`}
-                      rows={4}
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        disabled={sending || !replyText.trim()}
-                        onClick={() => sendReply(inq.id)}
-                      >
-                        {sending ? "Sending..." : "Send Reply"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => { setReplyingTo(null); setReplyText(""); }}
-                      >
-                        Cancel
-                      </Button>
+
+                {activeTab === "active" ? (
+                  replyingTo === inq.id ? (
+                    <div className="space-y-2 pt-2">
+                      <Textarea
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        placeholder={`Reply to ${inq.name}...`}
+                        rows={4}
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          disabled={sending || !replyText.trim()}
+                          onClick={() => sendReply(inq.id)}
+                        >
+                          {sending ? "Sending..." : "Send Reply"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => { setReplyingTo(null); setReplyText(""); }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex gap-2 pt-2">
-                    {inq.status !== "closed" && (
+                  ) : (
+                    <div className="flex gap-2 pt-2">
                       <Button
                         size="sm"
                         onClick={() => { setReplyingTo(inq.id); setReplyText(""); }}
                       >
                         Reply
                       </Button>
-                    )}
-                    {inq.status === "new" && (
+                      {inq.status === "new" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => updateStatus(inq.id, "replied")}
+                        >
+                          Mark replied
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => updateStatus(inq.id, "replied")}
+                        onClick={() => updateStatus(inq.id, "archived")}
                       >
-                        Mark replied
+                        Archive
                       </Button>
-                    )}
-                    {inq.status !== "closed" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => updateStatus(inq.id, "closed")}
-                      >
-                        Close
-                      </Button>
-                    )}
+                    </div>
+                  )
+                ) : (
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => updateStatus(inq.id, "new")}
+                    >
+                      Restore
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={deleting === inq.id}
+                      onClick={() => deleteInquiry(inq.id)}
+                    >
+                      {deleting === inq.id ? "Deleting..." : "Delete permanently"}
+                    </Button>
                   </div>
                 )}
               </CardContent>
